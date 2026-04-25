@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0d0f0a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#fbf9f3" media="(prefers-color-scheme: light)" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="description" content="Listen live to a Velune Web Radio broadcast." />
+  <title>Velune Web Radio</title>
+
+  <!-- ===== Inline manifest (PWA-lite) ============================================ -->
+  <link rel="manifest" href='data:application/manifest+json,{"name":"Velune%20Web%20Radio","short_name":"Velune","display":"standalone","background_color":"%230d0f0a","theme_color":"%230d0f0a"}' />
+
+  <style>
+    /* ============================================================================
+     * Design tokens — Material You-ish, both themes covered
+     * ============================================================================ */
+    :root {
+      --bg:          #fbf9f3;
+      --surface:     #ffffff;
+      --surface-2:   #f3efe6;
+      --on-bg:       #1a1c14;
+      --on-bg-soft:  #4a4d40;
+      --primary:     #5b7a1e;
+      --on-primary:  #ffffff;
+      --accent:      #c8e63c;
+      --error:       #b3261e;
+      --radius:      20px;
+      --radius-sm:   12px;
+      --shadow:      0 4px 20px rgba(0,0,0,.06);
+      --pulse:       1;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:          #0d0f0a;
+        --surface:     #161914;
+        --surface-2:   #1f231b;
+        --on-bg:       #ecefe2;
+        --on-bg-soft:  #a8ad9a;
+        --primary:     #c8e63c;
+        --on-primary:  #1a2200;
+        --accent:      #e7ff66;
+        --error:       #ffb4ab;
+        --shadow:      0 8px 30px rgba(0,0,0,.45);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :root { --pulse: 0; }
+      * { animation: none !important; transition: none !important; }
+    }
+
+    /* ============================================================================
+     * Reset / base
+     * ============================================================================ */
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+            "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--on-bg);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right)
+               env(safe-area-inset-bottom) env(safe-area-inset-left);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    button { font: inherit; cursor: pointer; }
+    :focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    /* Visually hidden, available to screen readers */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+
+    /* ============================================================================
+     * Layout
+     * ============================================================================ */
+    main {
+      width: 100%;
+      max-width: 520px;
+      padding: 24px 20px 96px;
+    }
+
+    header.brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 600; letter-spacing: .02em;
+      margin-bottom: 24px;
+    }
+    .logo {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: grid; place-items: center;
+      color: var(--on-primary); font-weight: 700; font-size: 15px;
+    }
+    .brand small {
+      margin-left: auto;
+      color: var(--on-bg-soft); font-weight: 400; font-size: 13px;
+    }
+
+    /* ============================================================================
+     * Now-playing card
+     * ============================================================================ */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+
+    .nowplaying {
+      display: grid; grid-template-columns: 96px 1fr; gap: 16px;
+      align-items: center;
+    }
+    .artwork {
+      width: 96px; height: 96px; border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      display: grid; place-items: center;
+      color: var(--on-bg-soft);
+      overflow: hidden;
+      position: relative;
+    }
+    .artwork img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .artwork svg { width: 40%; height: 40%; opacity: .5; }
+    .meta { min-width: 0; }
+    .title {
+      font-size: 18px; font-weight: 600; margin: 0 0 4px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .artist {
+      color: var(--on-bg-soft); margin: 0 0 8px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .yt-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--on-bg);
+      text-decoration: none;
+      font-size: 13px;
+      transition: transform .12s ease, background .12s ease;
+    }
+    .yt-link:hover { background: var(--accent); color: var(--on-primary); }
+    .yt-link[hidden] { display: none; }
+    .yt-link svg { width: 14px; height: 14px; }
+
+    /* ============================================================================
+     * Status pill + player
+     * ============================================================================ */
+    .status-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px;
+      color: var(--on-bg-soft);
+      font-size: 14px;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--on-bg-soft);
+      transition: background .2s ease;
+    }
+    .dot.live    { background: var(--primary); animation: pulse 1.6s ease-in-out infinite; }
+    .dot.error   { background: var(--error); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(var(--pulse)); }
+      50%      { opacity: .35; }
+    }
+    .listeners { margin-left: auto; }
+
+    .play-row { display: flex; align-items: center; gap: 12px; }
+    .play-btn {
+      width: 56px; height: 56px; border-radius: 50%;
+      border: 0;
+      background: var(--primary); color: var(--on-primary);
+      display: grid; place-items: center;
+      transition: transform .12s ease, background .12s ease;
+    }
+    .play-btn:hover { transform: scale(1.05); }
+    .play-btn:active { transform: scale(.96); }
+    .play-btn:disabled { background: var(--on-bg-soft); cursor: not-allowed; }
+    .play-btn svg { width: 26px; height: 26px; }
+
+    .volume {
+      flex: 1; display: flex; align-items: center; gap: 10px;
+      color: var(--on-bg-soft);
+    }
+    .volume input[type=range] {
+      flex: 1; accent-color: var(--primary);
+    }
+
+    /* ============================================================================
+     * Setup card
+     * ============================================================================ */
+    .setup .row { display: flex; gap: 8px; margin-top: 8px; }
+    .setup label { display: block; font-size: 12px; color: var(--on-bg-soft); margin-bottom: 4px; }
+    .setup input {
+      width: 100%; padding: 10px 12px;
+      background: var(--surface-2); color: var(--on-bg);
+      border: 1px solid transparent; border-radius: var(--radius-sm);
+      font: inherit;
+    }
+    .setup input:focus { border-color: var(--primary); }
+    .setup .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn {
+      padding: 10px 16px;
+      border-radius: 999px; border: 0;
+      background: var(--surface-2); color: var(--on-bg);
+      transition: background .12s ease;
+    }
+    .btn.primary { background: var(--primary); color: var(--on-primary); }
+    .btn:hover { filter: brightness(1.05); }
+
+    /* ============================================================================
+     * Footer
+     * ============================================================================ */
+    footer {
+      width: 100%; max-width: 520px; padding: 16px 20px 28px;
+      color: var(--on-bg-soft); font-size: 12px; text-align: center;
+    }
+    footer a { color: var(--primary); }
+
+    @media (max-width: 380px) {
+      .nowplaying { grid-template-columns: 80px 1fr; gap: 12px; }
+      .artwork { width: 80px; height: 80px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="brand" aria-label="Velune Web Radio">
+      <div class="logo" aria-hidden="true">V</div>
+      <span>Velune</span>
+      <small id="serverName">Web Radio</small>
+    </header>
+
+    <!-- ===================== Now-playing ===================== -->
+    <section class="card" aria-labelledby="np-heading">
+      <h2 id="np-heading" class="sr-only">Now playing</h2>
+
+      <div class="nowplaying">
+        <div class="artwork" id="artwork" aria-hidden="true">
+          <!-- music-note fallback -->
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>
+        </div>
+        <div class="meta" aria-live="polite">
+          <p class="title"  id="title">Connect to a station</p>
+          <p class="artist" id="artist">Tune in below</p>
+          <a id="ytLink" class="yt-link" href="#" target="_blank" rel="noopener noreferrer" hidden>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M21.6 7.2a2.5 2.5 0 0 0-1.7-1.8C18.2 5 12 5 12 5s-6.2 0-7.9.4A2.5 2.5 0 0 0 2.4 7.2 26 26 0 0 0 2 12a26 26 0 0 0 .4 4.8 2.5 2.5 0 0 0 1.7 1.8c1.7.4 7.9.4 7.9.4s6.2 0 7.9-.4a2.5 2.5 0 0 0 1.7-1.8A26 26 0 0 0 22 12a26 26 0 0 0-.4-4.8zM10 15.5v-7l6 3.5z"/>
+            </svg>
+            Watch on YouTube
+          </a>
+        </div>
+      </div>
+
+      <hr style="border:0;border-top:1px solid var(--surface-2);margin:18px -4px"/>
+
+      <div class="status-row" role="status" aria-live="polite">
+        <span class="dot" id="dot" aria-hidden="true"></span>
+        <span id="status">Disconnected</span>
+        <span class="listeners" id="listeners" aria-label="Listeners"></span>
+      </div>
+
+      <div class="play-row">
+        <button class="play-btn" id="playBtn" aria-label="Play stream" disabled>
+          <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        </button>
+        <div class="volume">
+          <label for="vol" class="sr-only">Volume</label>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+            <path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05a4.5 4.5 0 0 0 2.5-4.02z"/>
+          </svg>
+          <input id="vol" type="range" min="0" max="1" step="0.01" value="0.9" />
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Setup ===================== -->
+    <section class="card setup" aria-labelledby="setup-heading">
+      <h2 id="setup-heading" style="margin:0 0 4px;font-size:14px;color:var(--on-bg-soft);text-transform:uppercase;letter-spacing:.06em">
+        Station
+      </h2>
+      <div class="row">
+        <div style="flex:2">
+          <label for="host">Host</label>
+          <input id="host" type="text" autocomplete="off" placeholder="radio.example.com" />
+        </div>
+        <div style="flex:1">
+          <label for="port">Port</label>
+          <input id="port" type="number" inputmode="numeric" min="1" max="65535" value="8000" />
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1">
+          <label for="mount">Mount</label>
+          <input id="mount" type="text" autocomplete="off" placeholder="/velune" value="/velune" />
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="connectBtn" type="button">Tune in</button>
+        <button class="btn" id="copyBtn" type="button" aria-label="Copy listener URL">Copy link</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Powered by <a href="https://github.com/nikhilvishwakarma00/Velune" target="_blank" rel="noopener noreferrer">Velune</a> · open-source web radio · no tracking
+  </footer>
+
+  <audio id="audio" preload="none" crossorigin="anonymous"></audio>
+
+  <script>
+  (() => {
+    'use strict';
+
+    // ---------- DOM refs ---------------------------------------------------------
+    const $ = id => document.getElementById(id);
+    const titleEl    = $('title');
+    const artistEl   = $('artist');
+    const ytLinkEl   = $('ytLink');
+    const artworkEl  = $('artwork');
+    const statusEl   = $('status');
+    const dotEl      = $('dot');
+    const listEl     = $('listeners');
+    const playBtn    = $('playBtn');
+    const playIcon   = $('playIcon');
+    const audioEl    = $('audio');
+    const volEl      = $('vol');
+    const hostInput  = $('host');
+    const portInput  = $('port');
+    const mountInput = $('mount');
+    const connectBtn = $('connectBtn');
+    const copyBtn    = $('copyBtn');
+    const serverName = $('serverName');
+
+    // SVG snippets for play/pause icon swap
+    const PLAY  = '<path d="M8 5v14l11-7z"/>';
+    const PAUSE = '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
+
+    // ---------- URL params -------------------------------------------------------
+    const params = new URLSearchParams(location.search);
+    const initial = {
+      host:  params.get('host')  || '',
+      port:  parseInt(params.get('port') || '8000', 10),
+      mount: params.get('mount') || '/velune',
+    };
+    if (!initial.mount.startsWith('/')) initial.mount = '/' + initial.mount;
+    hostInput.value  = initial.host;
+    portInput.value  = String(initial.port);
+    mountInput.value = initial.mount;
+
+    // ---------- State ------------------------------------------------------------
+    let pollTimer = null;
+    let reconnectTimer = null;
+    let lastSong = '';
+
+    // ---------- Helpers ----------------------------------------------------------
+    function streamUrl()   {
+      const h = hostInput.value.trim(), p = parseInt(portInput.value, 10) || 8000;
+      const m = (mountInput.value.trim() || '/velune').replace(/^([^/])/, '/$1');
+      return `http://${h}:${p}${m}`;
+    }
+    function statusJsonUrl() {
+      const h = hostInput.value.trim(), p = parseInt(portInput.value, 10) || 8000;
+      return `http://${h}:${p}/status-json.xsl`;
+    }
+    function setStatus(text, kind /* 'idle' | 'live' | 'error' */) {
+      statusEl.textContent = text;
+      dotEl.classList.toggle('live',  kind === 'live');
+      dotEl.classList.toggle('error', kind === 'error');
+    }
+
+    /**
+     * Decode "Title — Artist [yt:VIDEOID]" into structured pieces.
+     * Falls back gracefully on shorter inputs.
+     */
+    function parseSong(raw) {
+      if (!raw) return { title: 'Live', artist: '', videoId: null };
+      let videoId = null;
+      const yt = raw.match(/\s*\[yt:([\w-]{6,})\]\s*$/i);
+      if (yt) {
+        videoId = yt[1];
+        raw = raw.slice(0, yt.index).trim();
+      }
+      // Common separators: " — ", " - ", " – ", " | "
+      const split = raw.split(/\s+[—–|-]\s+/);
+      if (split.length >= 2) {
+        return { title: split[0], artist: split.slice(1).join(' — '), videoId };
+      }
+      return { title: raw, artist: '', videoId };
+    }
+
+    function applyTrack(t) {
+      titleEl.textContent  = t.title || 'Live';
+      artistEl.textContent = t.artist || '';
+      if (t.videoId) {
+        ytLinkEl.href = `https://www.youtube.com/watch?v=${encodeURIComponent(t.videoId)}`;
+        ytLinkEl.hidden = false;
+        artworkEl.innerHTML =
+          `<img src="https://i.ytimg.com/vi/${encodeURIComponent(t.videoId)}/mqdefault.jpg"
+                alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{}))" />`;
+      } else {
+        ytLinkEl.hidden = true;
+        artworkEl.innerHTML =
+          '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>';
+      }
+    }
+
+    // ---------- Polling ----------------------------------------------------------
+    async function pollStatus() {
+      try {
+        const r = await fetch(statusJsonUrl(), { cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        const sources = (data?.icestats?.source) || [];
+        const all = Array.isArray(sources) ? sources : [sources];
+        const wanted = mountInput.value.trim();
+        const src = all.find(s => s.listenurl?.endsWith(wanted)) || all[0];
+        if (!src) {
+          setStatus('No active mount yet', 'error');
+          return;
+        }
+        if (data?.icestats?.server_name) serverName.textContent = data.icestats.server_name;
+        if (typeof src.listeners === 'number') {
+          listEl.textContent = `${src.listeners} listening`;
+        }
+        const song = src.title || src.yp_currently_playing || '';
+        if (song !== lastSong) {
+          lastSong = song;
+          applyTrack(parseSong(song));
+        }
+      } catch (e) {
+        setStatus('Status feed unreachable', 'error');
+      }
+    }
+
+    function startPolling() {
+      stopPolling();
+      pollStatus();
+      pollTimer = setInterval(pollStatus, 5000);
+    }
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    // ---------- Audio ------------------------------------------------------------
+    function attachStream() {
+      const url = streamUrl();
+      // Adding a cache-buster forces a fresh connection if the user retunes.
+      audioEl.src = `${url}?t=${Date.now()}`;
+      audioEl.load();
+    }
+
+    function setPlaying(isPlaying) {
+      playIcon.innerHTML = isPlaying ? PAUSE : PLAY;
+      playBtn.setAttribute('aria-label', isPlaying ? 'Pause stream' : 'Play stream');
+    }
+
+    audioEl.addEventListener('playing', () => {
+      setStatus('Live', 'live');
+      setPlaying(true);
+    });
+    audioEl.addEventListener('pause', () => {
+      setStatus('Paused', 'idle');
+      setPlaying(false);
+    });
+    audioEl.addEventListener('error', () => {
+      setStatus('Stream error — retrying…', 'error');
+      setPlaying(false);
+      // Auto-retry once after a short delay
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        if (hostInput.value.trim()) attachStream();
+      }, 4000);
+    });
+    audioEl.addEventListener('waiting', () => setStatus('Buffering…', 'idle'));
+
+    playBtn.addEventListener('click', () => {
+      if (!audioEl.src) attachStream();
+      if (audioEl.paused) {
+        audioEl.play().catch(() => setStatus('Tap again to start playback', 'error'));
+      } else {
+        audioEl.pause();
+      }
+    });
+
+    volEl.addEventListener('input', () => { audioEl.volume = parseFloat(volEl.value); });
+    audioEl.volume = parseFloat(volEl.value);
+
+    // ---------- Connect button ---------------------------------------------------
+    function connect() {
+      if (!hostInput.value.trim()) {
+        setStatus('Enter a host to begin', 'error');
+        return;
+      }
+      attachStream();
+      startPolling();
+      playBtn.disabled = false;
+      setStatus('Tap play to listen', 'idle');
+      // Keep URL in sync with current setup so reloads/share work
+      const u = new URL(location.href);
+      u.searchParams.set('host',  hostInput.value.trim());
+      u.searchParams.set('port',  portInput.value || '8000');
+      u.searchParams.set('mount', mountInput.value || '/velune');
+      history.replaceState(null, '', u.toString());
+    }
+    connectBtn.addEventListener('click', connect);
+
+    copyBtn.addEventListener('click', async () => {
+      const url = location.href;
+      try {
+        await navigator.clipboard.writeText(url);
+        copyBtn.textContent = 'Copied';
+        setTimeout(() => (copyBtn.textContent = 'Copy link'), 1400);
+      } catch {
+        prompt('Copy this URL:', url);
+      }
+    });
+
+    // Auto-connect when arriving with all params present
+    if (initial.host) connect();
+  })();
+  </script>
+</body>
+</html>
