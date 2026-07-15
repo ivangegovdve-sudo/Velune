@@ -37,7 +37,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -472,13 +472,14 @@ fun Thumbnail(
                         userScrollEnabled = swipeThumbnail && isPlayerExpanded, // Only allow swipe when player is expanded
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(
+                        itemsIndexed(
                             items = mediaItems,
-                            key = { item -> 
-                                // Use mediaId with stable fallback to avoid recomposition issues
-                                item.mediaId.ifEmpty { "unknown_${item.hashCode()}" }
-                            }
-                        ) { item ->
+                            // Slots are positional (previous/current/next), so one song can
+                            // legitimately fill two of them — a queue like [A, B, A] playing B
+                            // yields the same mediaId twice. The slot index is what makes the
+                            // key unique; mediaId alone throws on duplicate keys.
+                            key = { index, item -> "${index}_${item.mediaId}" }
+                        ) { _, item ->
                             val incrementalSeekSkipEnabled by rememberPreference(SeekExtraSeconds, defaultValue = false)
                             var skipMultiplier by remember { mutableStateOf(1) }
                             var lastTapTime by remember { mutableLongStateOf(0L) }

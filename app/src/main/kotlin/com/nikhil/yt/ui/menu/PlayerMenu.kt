@@ -1217,7 +1217,11 @@ fun EqualizerDialog(
         bandLevelsMb = resampleLevelsByIndex(decodeBandLevelsMb(bandLevelsRaw), bandCount)
     }
 
-    val profiles = remember(customProfilesJson) { decodeProfilesPayload(customProfilesJson).profiles }
+    // Imported/hand-edited payloads are untrusted and may repeat ids, which the
+    // profile list uses as Lazy keys.
+    val profiles = remember(customProfilesJson) {
+        decodeProfilesPayload(customProfilesJson).profiles.distinctBy { it.id }
+    }
     val activeProfileId = selectedProfileId.removePrefix("profile:").takeIf { selectedProfileId.startsWith("profile:") }
     val activeProfile = remember(profiles, activeProfileId) { profiles.firstOrNull { it.id == activeProfileId } }
 
