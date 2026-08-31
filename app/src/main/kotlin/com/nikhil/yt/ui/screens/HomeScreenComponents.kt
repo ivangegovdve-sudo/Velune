@@ -448,7 +448,7 @@ fun SimilarRecommendationsSection(
         modifier = modifier
     ) {
         items(
-            items = recommendation.items,
+            items = recommendation.items.distinctBy { it.id },
             key = { it.id }
         ) { item ->
             YouTubeGridItemWrapper(
@@ -488,7 +488,7 @@ fun HomePageSectionContent(
         modifier = modifier
     ) {
         items(
-            items = section.items,
+            items = section.items.distinctBy { it.id },
             key = { it.id }
         ) { item ->
             YouTubeGridItemWrapper(
@@ -1098,7 +1098,7 @@ fun CommunityPlaylistsSection(
             modifier = Modifier.fillMaxWidth()
         ) {
             items(
-                items = section.items,
+                items = section.items.distinctBy { it.id },
                 key = { it.id }
             ) { item ->
                 Box(modifier = Modifier.width(160.dp)) {

@@ -94,6 +94,9 @@ class ForYouSuggestionEngine @Inject constructor(
 
     /**
      * Build the For You suggestion list from local + YouTube related songs
+     *
+     * The returned list is guaranteed distinct by song id — callers use it as
+     * Lazy list keys, which throw if a key repeats.
      */
     suspend fun getSuggestions(
         hideExplicit: Boolean = false,
@@ -136,6 +139,9 @@ class ForYouSuggestionEngine @Inject constructor(
                 val filtered = related.songs
                     .filterExplicit(hideExplicit)
                     .filterVideo(hideVideo)
+                    // distinctBy must come first: seenIds is only updated after the
+                    // batch, so it cannot catch a video repeated within one response.
+                    .distinctBy { it.id }
                     .filter { it.id !in seenIds }
                     .shuffled()
                     .take(10)
@@ -159,18 +165,20 @@ class ForYouSuggestionEngine @Inject constructor(
                         val filtered = related?.songs
                             ?.filterExplicit(hideExplicit)
                             ?.filterVideo(hideVideo)
+                            ?.distinctBy { it.id }
                             ?.filter { it.id !in seenIds }
                             ?.shuffled()
                             ?.take(MAX_SUGGESTIONS - suggestions.size)
                             ?: emptyList()
 
                         suggestions.addAll(filtered)
+                        seenIds.addAll(filtered.map { it.id })
                     }
                 } catch (_: Exception) {}
             }
         }
 
-        return suggestions.take(MAX_SUGGESTIONS)
+        return suggestions.distinctBy { it.id }.take(MAX_SUGGESTIONS)
     }
 
     /**
